@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReelBot</title>
+<style>
+  :root {
+    --bg:#0d1013; --panel:#151a1f; --panel-2:#1b2127; --rule:#262e36;
+    --ink:#e6eaee; --muted:#8b96a1; --dim:#5f6a75;
+    --accent:#6aa8ff; --accent-dim:#1d2b44;
+    --good:#5ad19a; --warn:#e0b64e; --bad:#e88070;
+    --radius:10px;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.55 ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  }
+  .mono { font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; }
+  .wrap { max-width:1180px; margin:0 auto; padding:26px 22px 90px; }
+
+  h1 { font-size:19px; margin:0; letter-spacing:-.01em; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.09em;
+       color:var(--muted); margin:0 0 12px; font-weight:600; }
+  p { margin:0; }
+
+  header.top {
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    padding-bottom:18px; border-bottom:1px solid var(--rule); margin-bottom:22px;
+  }
+  .grow { flex:1; }
+  .chip {
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:12px; padding:3px 9px; border-radius:20px;
+    border:1px solid var(--rule); color:var(--muted); background:var(--panel);
+  }
+  .chip.ok { color:var(--good); border-color:#26483a; }
+  .chip.off { color:var(--bad); border-color:#4a2b26; }
+
+  .grid { display:grid; gap:18px; grid-template-columns:1fr; }
+  @media (min-width:900px){ .grid.two { grid-template-columns:1.35fr .95fr; } }
+
+  section.card {
+    background:var(--panel); border:1px solid var(--rule);
+    border-radius:var(--radius); padding:18px;
+  }
+
+  button {
+    font:inherit; font-size:13.5px; font-weight:550;
+    padding:8px 14px; border-radius:8px; cursor:pointer;
+    background:var(--panel-2); color:var(--ink); border:1px solid var(--rule);
+  }
+  button:hover:not(:disabled) { border-color:#3a4854; }
+  button:disabled { opacity:.42; cursor:not-allowed; }
+  button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  button.primary { background:var(--accent-dim); border-color:#33496e; color:#cfe1ff; }
+  button.good { color:var(--good); border-color:#26483a; }
+  button.bad  { color:var(--bad);  border-color:#4a2b26; }
+  button.tiny { padding:5px 10px; font-size:12.5px; }
+
+  select, input[type=number] {
+    font:inherit; font-size:13.5px; background:var(--panel-2); color:var(--ink);
+    border:1px solid var(--rule); border-radius:8px; padding:7px 10px;
+  }
+  label.inline { display:inline-flex; align-items:center; gap:7px; font-size:13.5px; color:var(--muted); }
+
+  /* Mode switch */
+  .modes { display:inline-flex; border:1px solid var(--rule); border-radius:9px; overflow:hidden; }
+  .modes button { border:0; border-radius:0; background:transparent; color:var(--muted); }
+  .modes button[aria-pressed="true"] { background:var(--accent-dim); color:#cfe1ff; }
+
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .stack { display:flex; flex-direction:column; gap:12px; }
+
+  /* Queue */
+  .item {
+    display:grid; grid-template-columns:74px 1fr auto; gap:14px;
+    padding:13px; border:1px solid var(--rule); border-radius:9px; background:var(--panel-2);
+  }
+  .item img { width:74px; height:110px; object-fit:cover; border-radius:6px; background:#0a0d10; }
+  .item .meta { min-width:0; }
+  .item .title { font-weight:600; margin-bottom:3px; }
+  .item .sub { font-size:12.5px; color:var(--dim); }
+  .cap {
+    margin-top:8px; font-size:12.5px; color:var(--muted);
+    white-space:pre-wrap; max-height:74px; overflow:hidden; position:relative;
+  }
+  .cap.open { max-height:none; }
+  .acts { display:flex; flex-direction:column; gap:7px; align-items:stretch; }
+
+  .status { font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; }
+  .s-pending{color:var(--warn)} .s-approved{color:var(--accent)}
+  .s-published{color:var(--good)} .s-rejected{color:var(--dim)} .s-failed{color:var(--bad)}
+
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--rule); }
+  th { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); font-weight:600; }
+  td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; font-family:ui-monospace,monospace; }
+  tr.retire td { color:var(--bad); }
+  tr.keep td.n:first-of-type { color:var(--good); }
+
+  .note {
+    font-size:12.5px; color:var(--muted); background:var(--panel-2);
+    border-left:2px solid var(--warn); padding:9px 12px; border-radius:0 7px 7px 0;
+  }
+  .note.danger { border-left-color:var(--bad); color:#f0b7ad; }
+
+  #toast {
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:var(--panel-2); border:1px solid var(--rule); color:var(--ink);
+    padding:11px 18px; border-radius:9px; font-size:13.5px;
+    opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; z-index:50;
+    max-width:min(640px,90vw);
+  }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast.err { border-color:#4a2b26; color:#f0b7ad; }
+
+  .empty { color:var(--dim); font-size:13.5px; padding:14px 0; }
+  .spin { display:inline-block; width:11px; height:11px; border:2px solid var(--dim);
+          border-top-color:var(--accent); border-radius:50%; animation:sp .7s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce){ .spin{animation:none} #toast{transition:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>ReelBot</h1>
+    <span class="chip mono" id="today">—</span>
+    <span class="grow"></span>
+    <span class="chip" id="c-gemini">Gemini</span>
+    <span class="chip" id="c-insta">Instagram</span>
+  </header>
+
+  <section class="card" style="margin-bottom:18px">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <h2 style="margin:0 8px 0 0">Automation</h2>
+        <div class="modes" role="group" aria-label="Automation mode">
+          <button id="m-semi"  onclick="setMode('review')" aria-pressed="false">Semi — review first</button>
+          <button id="m-full"  onclick="setMode('auto')"   aria-pressed="false">Full — post automatically</button>
+        </div>
+        <label class="inline">
+          <input type="checkbox" id="story" onchange="setStory(this.checked)"> Reshare to story
+        </label>
+      </div>
+      <div class="row">
+        <select id="fmt" aria-label="Format"></select>
+        <button class="primary" id="b-gen" onclick="generate()">Generate now</button>
+        <button id="b-pub" onclick="publish()">Publish approved</button>
+      </div>
+    </div>
+    <p class="note" id="mode-note" style="margin-top:13px"></p>
+  </section>
+
+  <div class="grid two">
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between; margin-bottom:12px">
+        <h2 style="margin:0">Queue</h2>
+        <span class="mono" id="counts" style="font-size:12px; color:var(--dim)"></span>
+      </div>
+      <div class="stack" id="queue"><p class="empty">Loading…</p></div>
+    </section>
+
+    <div class="stack">
+      <section class="card">
+        <h2>Schedule</h2>
+        <table id="sched"><tbody></tbody></table>
+      </section>
+
+      <section class="card">
+        <div class="row" style="justify-content:space-between; margin-bottom:10px">
+          <h2 style="margin:0">Channel</h2>
+          <button class="tiny" onclick="syncChannel()">Sync from Instagram</button>
+        </div>
+        <p class="empty mono" id="synced" style="padding:0 0 10px"></p>
+
+        <div class="row" style="margin-bottom:10px">
+          <label class="inline">Keep top
+            <input type="number" id="keep" value="12" min="1" max="60" style="width:68px">
+          </label>
+          <label class="inline">
+            <select id="rmode">
+              <option value="archive">Archive (reversible)</option>
+              <option value="delete">Delete (permanent)</option>
+            </select>
+          </label>
+          <button class="tiny" onclick="planRetention(false)">Preview</button>
+        </div>
+
+        <div id="plan"></div>
+        <table id="posts"><tbody></tbody></table>
+      </section>
+
+      <section class="card">
+        <h2>Activity</h2>
+        <div id="jobs"><p class="empty">Nothing running.</p></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+let STATE = null, POLL = null, LAST_PLAN = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+function toast(msg, isError) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "show" + (isError ? " err" : "");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => (t.className = ""), 4200);
+}
+
+async function api(path, method, body) {
+  const res = await fetch("/api" + path, {
+    method: method || "GET",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+
+async function refresh() {
+  try {
+    STATE = await api("/state");
+    render();
+  } catch (e) { toast("Could not load state: " + e.message, true); }
+}
+
+function render() {
+  const s = STATE.settings, t = STATE.today;
+
+  $("today").textContent = `${t.date} · ${t.format}${t.already_ran ? " · done" : ""}`;
+  $("c-gemini").className = "chip " + (s.has_gemini ? "ok" : "off");
+  $("c-gemini").textContent = s.has_gemini ? "Gemini ready" : "Gemini missing";
+  $("c-insta").className = "chip " + (s.has_instagram ? "ok" : "off");
+  $("c-insta").textContent = s.has_instagram ? "Instagram ready" : "Instagram missing";
+
+  const auto = s.publish_mode === "auto";
+  $("m-full").setAttribute("aria-pressed", auto);
+  $("m-semi").setAttribute("aria-pressed", !auto);
+  $("story").checked = !!s.share_to_story;
+  $("mode-note").textContent = auto
+    ? "Full: the daily task generates and posts without asking. Nothing waits for you."
+    : "Semi: the daily task generates and holds each reel here until you approve it.";
+
+  if (!$("fmt").options.length) {
+    $("fmt").innerHTML = '<option value="">Today’s format</option>' +
+      STATE.formats.map(f => `<option value="${f}">${f}</option>`).join("");
+  }
+
+  $("counts").textContent = Object.entries(STATE.counts)
+    .filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(" · ") || "empty";
+
+  // Queue
+  const open = STATE.queue.filter(i => i.status !== "rejected");
+  $("queue").innerHTML = open.length ? open.map(i => `
+    <div class="item">
+      ${i.thumb ? `<img src="/media/${encodeURIComponent(i.thumb)}" alt="">` : "<div></div>"}
+      <div class="meta">
+        <div class="title">${esc(i.title)}</div>
+        <div class="sub mono">${esc(i.format)} · ${i.duration_sec}s ·
+          <span class="status s-${i.status}">${i.status}</span>
+          ${i.error ? " · " + esc(i.error) : ""}</div>
+        <div class="cap" onclick="this.classList.toggle('open')" title="Click to expand"
+          >${esc(i.caption)}</div>
+      </div>
+      <div class="acts">
+        ${i.status === "pending" ? `
+          <button class="tiny good" onclick="act('${i.id}','approve')">Approve</button>
+          <button class="tiny bad"  onclick="act('${i.id}','reject')">Reject</button>` : ""}
+        ${i.status === "approved" ? `<button class="tiny bad" onclick="act('${i.id}','reject')">Reject</button>` : ""}
+        ${i.video ? `<a href="/media/${encodeURIComponent(i.video)}" target="_blank"
+             rel="noopener"><button class="tiny">Watch</button></a>` : ""}
+      </div>
+    </div>`).join("") : '<p class="empty">Nothing queued. Generate one.</p>';
+
+  // Schedule
+  $("sched").querySelector("tbody").innerHTML = STATE.upcoming.map((d, i) => `
+    <tr><td class="mono" style="color:var(--dim)">${d.weekday}</td>
+        <td>${esc(d.format)}</td>
+        <td class="n mono" style="color:var(--dim)">${i === 0 ? "today" : ""}</td></tr>`).join("");
+
+  // Channel
+  const ch = STATE.channel;
+  $("synced").textContent = ch.synced_at
+    ? `${ch.live} live posts · synced ${ch.synced_at.replace("T", " ").slice(0, 16)}`
+    : "Never synced — press Sync to read the account.";
+  $("posts").querySelector("tbody").innerHTML = ch.posts.slice(0, 20).map((p, i) => `
+    <tr><td class="mono" style="color:var(--dim)">${i + 1}</td>
+        <td class="n">${p.views.toLocaleString()}</td>
+        <td style="color:var(--muted)">${esc(p.caption_head.slice(0, 40))}</td></tr>`).join("");
+
+  renderJobs(STATE.jobs);
+}
+
+function renderJobs(j) {
+  const busy = j.current;
+  ["b-gen", "b-pub"].forEach(id => ($(id).disabled = !!busy));
+  const rows = [];
+  if (busy) rows.push(`<p><span class="spin"></span> &nbsp;${esc(busy.message)}</p>`);
+  j.recent.slice(0, 4).forEach(job => rows.push(
+    `<p style="font-size:13px;color:${job.status === "failed" ? "var(--bad)" : "var(--muted)"}">
+      ${job.status === "failed" ? "✕" : "✓"} ${esc(job.message)}</p>`));
+  $("jobs").innerHTML = rows.join("") || '<p class="empty">Nothing running.</p>';
+
+  if (busy && !POLL) POLL = setInterval(pollJobs, 1800);
+  if (!busy && POLL) { clearInterval(POLL); POLL = null; }
+}
+
+async function pollJobs() {
+  try {
+    const j = await api("/jobs");
+    renderJobs(j);
+    if (!j.current) refresh();
+  } catch (e) { /* transient; the next tick retries */ }
+}
+
+// --- actions
+async function setMode(mode) {
+  try {
+    await api("/settings", "POST", { key: "publish_mode", value: mode });
+    toast(mode === "auto" ? "Full automation on — reels will post without review."
+                          : "Semi automation on — reels wait for your approval.");
+    refresh();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function setStory(on) {
+  try {
+    await api("/settings", "POST", { key: "share_to_story", value: on });
+    toast(on ? "Reels will also be reshared to your story." : "Story reshare off.");
+  } catch (e) { toast(e.message, true); refresh(); }
+}
+
+async function generate() {
+  try {
+    await api("/generate", "POST", { format: $("fmt").value || null });
+    toast("Generating — this takes a minute.");
+    pollJobs();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function publish() {
+  if (!confirm("Publish all approved reels to Instagram now?")) return;
+  try { await api("/publish", "POST", {}); toast("Publishing…"); pollJobs(); }
+  catch (e) { toast(e.message, true); }
+}
+
+async function act(id, action) {
+  try { await api(`/queue/${encodeURIComponent(id)}/${action}`, "POST"); refresh(); }
+  catch (e) { toast(e.message, true); }
+}
+
+async function syncChannel() {
+  try { await api("/sync", "POST", {}); toast("Reading the account…"); pollJobs(); }
+  catch (e) { toast(e.message, true); }
+}
+
+async function planRetention(apply) {
+  const keep = parseInt($("keep").value, 10) || 12;
+  const mode = $("rmode").value;
+  try {
+    const plan = await api("/retention", "POST", { keep, mode, apply: false });
+    LAST_PLAN = { keep, mode };
+    const danger = mode === "delete";
+    $("plan").innerHTML = plan.retire.length ? `
+      <p class="note ${danger ? "danger" : ""}">
+        ${danger
+          ? `<strong>Permanent.</strong> ${plan.retire.length} post(s) would be deleted — views,
+             comments and saves are destroyed and cannot be restored by anyone.`
+          : `${plan.retire.length} post(s) would be hidden from your grid. Archiving is
+             reversible; the posts and their numbers stay on the account.`}
+        ${plan.too_young ? `<br>${plan.too_young} recent post(s) are protected — too new to judge.` : ""}
+      </p>
+      <table style="margin:10px 0"><tbody>${plan.retire.map(p => `
+        <tr class="retire"><td class="n">${p.views.toLocaleString()}</td>
+        <td>${esc(p.caption.slice(0, 44))}</td></tr>`).join("")}</tbody></table>
+      <button class="${danger ? "bad" : ""}" onclick="applyRetention()">
+        ${danger ? "Delete" : "Archive"} ${plan.retire.length} post(s)</button>`
+      : '<p class="empty">Nothing to retire — the grid is already within the limit.</p>';
+  } catch (e) { toast(e.message, true); }
+}
+
+async function applyRetention() {
+  if (!LAST_PLAN) return;
+  const del = LAST_PLAN.mode === "delete";
+  const warn = del
+    ? "PERMANENTLY DELETE these posts?\n\nView counts, comments and saves will be destroyed. " +
+      "This cannot be undone by you, by this tool, or by Instagram support.\n\nType-safe check: press OK only if you are sure."
+    : "Archive these posts? They will be hidden from your grid but kept on the account.";
+  if (!confirm(warn)) return;
+  if (del && !confirm("Last chance — really delete permanently?")) return;
+
+  try {
+    await api("/retention", "POST", {
+      keep: LAST_PLAN.keep, mode: LAST_PLAN.mode, apply: true, confirm_delete: del,
+    });
+    toast("Working…");
+    $("plan").innerHTML = "";
+    pollJobs();
+  } catch (e) { toast(e.message, true); }
+}
+
+refresh();
+setInterval(() => { if (!POLL) refresh(); }, 20000);
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+# ─── Secrets (NEVER commit) ──────────────────────────────────────────────
+.env
+*.env
+.env.*
+*.backup*
+!.env.example
+data/ig_session.json
+ig_session.json
+
+# ─── Generated content ───────────────────────────────────────────────────
+Reels/
+logs/
+archive/
+data/*.json
+!data/.gitkeep
+
+# ─── Generated audio assets (rebuilt on demand) ──────────────────────────
+assets/bgm/*.wav
+assets/sfx/*.wav
+
+# ─── Temp render artifacts ───────────────────────────────────────────────
+temp_*.mp3
+temp_*.wav
+master_voice_*.mp3
+*TEMP_MPY_*
+frames_tmp/
+
+# ─── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
